@@ -2,28 +2,29 @@ export const config = {
   runtime: 'edge'
 }
 
-const CORS_HEADERS: Record<string, string> = {
+const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, x-from-client',
   'Access-Control-Max-Age': '86400'
 }
 
-function requireClientHeader(headers: Headers): boolean {
+// 校验请求头 x-from-client 是否为 'api-proxy'
+function requireClientHeader(headers) {
   const val = headers.get('x-from-client') || headers.get('X-From-Client')
   return val === 'api-proxy'
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req) {
   const { searchParams } = new URL(req.url)
   const target = searchParams.get('url')
 
-  // Preflight
+  // 处理 CORS 预检
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS })
   }
 
-  // Header check
+  // 校验自定义头
   if (!requireClientHeader(req.headers)) {
     return new Response(JSON.stringify({ error: 'Forbidden: missing or invalid x-from-client header' }), {
       status: 403,
@@ -41,7 +42,7 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     const method = req.method || 'GET'
     const bodyNeeded = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
-    const init: RequestInit = {
+    const init = {
       method,
       headers: req.headers,
       body: bodyNeeded ? await req.arrayBuffer() : undefined
@@ -55,7 +56,7 @@ export default async function handler(req: Request): Promise<Response> {
     headers.set('Access-Control-Expose-Headers', 'content-type, content-length, x-request-id')
 
     return new Response(respBody, { status: resp.status, headers })
-  } catch (e: any) {
+  } catch (e) {
     return new Response(JSON.stringify({ error: 'Bad gateway', detail: e?.message }), {
       status: 502,
       headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
